@@ -1,8 +1,17 @@
+from datetime import datetime
+
 usuarios = []
 contas = []
 usuario_logado = False
 usuario_atual = {}
 LIMITE_OPERACOES_SAQUE = 3
+
+def decorador(funcao):
+  def add_info(*args, **kwargs):
+    funcao(*args, **kwargs)
+    print(f"\n{datetime.now()}: {funcao.__name__}")
+    print(f"\n")
+  return add_info
 
 def verificar_existencia_usuario(cpf):
   usuario = [usuario for usuario in usuarios if usuario["cpf"] == cpf]
@@ -33,7 +42,7 @@ def criar_conta(usuario):
   global contas
   
   numero = len(contas) + 1
-  contas.append({"agencia": "0001", "numero": numero, "cpf": usuario["cpf"], "usuario": usuario, "saldo": 0, "extrato": ""})
+  contas.append({"agencia": "0001", "numero": numero, "cpf": usuario["cpf"], "usuario": usuario, "saldo": 0, "extrato": []})
   
   print("\nConta criada com sucesso!")
   print("Informações da nova conta:")
@@ -62,15 +71,37 @@ def entrar():
   else:
     print("\nSenha incorreta!")
 
+class ContaIterador:
+  def __init__(self, contas: list[dict]):
+    self.contas = contas
+    self.contador = 0
+  def __iter__(self):
+    return self
+  def __next__(self):
+    try:
+      conta = self.contas[self.contador]
+      self.contador += 1
+      return conta
+    except IndexError:
+      raise StopIteration
+
 def menu_deslogado():
   global usuario_logado
+  global contas
   while usuario_logado == False:
     print("\n=== Seja bem-vindo! ===")
+    print("0. Exibir contas cadastradas")
     print("1. Criar usuário")
     print("2. Entrar")
     print("3. Sair")
     opcao = int(input("\nDigite uma opção > "))
-    if opcao == 1:
+    if opcao == 0:
+      if contas.__len__() == 0:
+        print("\nNenhuma conta encontrada!")
+      else:
+        for i in ContaIterador(contas):
+          print(f"\n{i.get('agencia')}.{i.get('numero')}\nCPF: {i.get('cpf')}\nSaldo: {i.get('saldo')}\n")
+    elif opcao == 1:
       criar_usuario()
     elif opcao == 2:
       entrar()
@@ -162,6 +193,7 @@ def menu_logado():
       else:
         print("Opção inválida!")
 
+@decorador
 def ver_saldo(numero_conta):
   global contas
 
@@ -171,6 +203,7 @@ def ver_saldo(numero_conta):
 
   print("\nSeu saldo é de: R$ ", saldo)
 
+@decorador
 def depositar(numero_conta, valor):
   global contas
 
@@ -181,10 +214,11 @@ def depositar(numero_conta, valor):
   for conta in contas:
     if conta["numero"] == numero_conta:
       conta["saldo"] += valor
-      conta["extrato"] += f"\n+ Depósito de R$ {valor:.2f}"
+      conta["extrato"].append({"operacao": "deposito", "valor": valor, "data": datetime.now()})
       print("Depósito realizado com sucesso!")
       return conta["saldo"]
 
+@decorador
 def sacar(numero_conta=None, valor=0):
   global contas
 
@@ -201,18 +235,37 @@ def sacar(numero_conta=None, valor=0):
       saldo = conta["saldo"]
       if valor <= saldo:
         conta["saldo"] = conta["saldo"] - valor
-        conta["extrato"] += f"\n- Saque de R$ {valor:.2f}"
+        conta["extrato"].append({"operacao": "saque", "valor": valor, "data": datetime.now()})
         print("Saque realizado com sucesso!")
         return conta["saldo"]
       else:
         print("Saldo insuficiente!")
         return None
-  
-def tirar_extrato(saldo, extrato=""):
-  if (extrato != ""):
-    print(extrato)
-    print("============\n")
-    print("Saldo final: R$ ", saldo)
+
+def gerador_extrato(extrato: list[dict], filtro):
+  for operacao in extrato:
+    if filtro == 1:
+      yield operacao
+    elif filtro == 2:
+      if operacao["operacao"] == "deposito":
+        yield operacao
+    elif filtro == 3:
+      if operacao["operacao"] == "saque":
+        yield operacao
+
+@decorador
+def tirar_extrato(saldo, extrato=[]):
+  if (extrato != []):
+    print("1. Tudo")
+    print("2. Depósitos")
+    print("3. Saques")
+    opcao = int(input("\nDigite uma opção > "))
+    if opcao < 1 or opcao > 3:
+      print("\nOpção inválida!")
+      return
+    print("\nResultado:")
+    for op in gerador_extrato(extrato, opcao):
+      print(f"{op['data']}: {op['operacao']} de R$ {op['valor']}")
   else:
     print("Nenhuma operação registrada!")
 
