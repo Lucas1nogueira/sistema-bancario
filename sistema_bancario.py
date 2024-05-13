@@ -4,13 +4,14 @@ usuarios = []
 contas = []
 usuario_logado = False
 usuario_atual = {}
-LIMITE_OPERACOES_SAQUE = 3
+LIMITE_OPERACOES = 10
 
 def decorador(funcao):
   def add_info(*args, **kwargs):
-    funcao(*args, **kwargs)
+    resultado = funcao(*args, **kwargs)
     print(f"\n{datetime.now()}: {funcao.__name__}")
     print(f"\n")
+    return resultado
   return add_info
 
 def verificar_existencia_usuario(cpf):
@@ -118,7 +119,7 @@ def menu_logado():
   global extrato
   conta_selecionada = False
   numero_conta = None
-  operacoes_saque = 0
+  operacoes = 0
 
   while usuario_logado == True:
     contas_usuario = [conta for conta in contas if conta["usuario"] == usuario_atual]
@@ -167,19 +168,23 @@ def menu_logado():
       if opcao == 1:
         ver_saldo(numero_conta)
       elif opcao == 2:
-        valor_deposito = float(input("\nDigite o valor para depósito: "))
-        novo_saldo = depositar(numero_conta, valor_deposito)
-        if novo_saldo is not None:
-          print("Saldo atual: R$ ", novo_saldo)
+        if operacoes == LIMITE_OPERACOES:
+          print("Limite de operações excedido!")
+        else:
+          valor_deposito = float(input("\nDigite o valor para depósito: "))
+          novo_saldo = depositar(numero_conta, valor_deposito)
+          if novo_saldo is not None:
+            print("Saldo atual: R$ ", novo_saldo)
+            operacoes += 1
       elif opcao == 3:
-        if operacoes_saque == LIMITE_OPERACOES_SAQUE:
-          print("Limite de saques excedido!")
+        if operacoes == LIMITE_OPERACOES:
+          print("Limite de operações excedido!")
         else:
           valor_saque = float(input("\nDigite o valor para saque: "))
           novo_saldo = sacar(numero_conta=numero_conta, valor=valor_saque)
           if novo_saldo is not None:
             print("Saldo atual: R$ ", novo_saldo)
-            operacoes_saque += 1
+            operacoes += 1
       elif opcao == 4:
         for conta in contas:
           if conta["numero"] == numero_conta:
@@ -256,7 +261,7 @@ def gerador_extrato(extrato: list[dict], filtro):
 @decorador
 def tirar_extrato(saldo, extrato=[]):
   if (extrato != []):
-    print("1. Tudo")
+    print("\n1. Tudo")
     print("2. Depósitos")
     print("3. Saques")
     opcao = int(input("\nDigite uma opção > "))
